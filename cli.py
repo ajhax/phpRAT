@@ -153,7 +153,10 @@ class CLI(cmd.Cmd):
 
     def complete_set(self, text, line, begidx, endidx):
         args_len = 3
-        completions = ['machine', 'message']
+        if 'msg' in self.get_curr_module():
+            completions = ['machine', 'message']
+        elif 'cmd' in self.get_curr_module():
+            completions = ['machine', 'command']
         if 'machine' in line:
             lock.acquire(True)
             db.c.execute('SELECT machineId FROM machines')
@@ -199,7 +202,6 @@ class CLI(cmd.Cmd):
 if __name__ == "__main__":
     sys.path.insert(0, "./server")
     from baburao import app, queue, db, lock
-    print(sys.path)
     baburao_thread = threading.Thread(
         target=app.run, kwargs={'host': '0.0.0.0'}, daemon=True)
     baburao_thread.start()
