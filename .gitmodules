@@ -1,6 +1,6 @@
 [submodule "server"]
 	path = server
-	url = git://github.com/ajhax/server.git
+	url = https://github.com/ajhax/server
 [submodule "client"]
 	path = client
 	url = https://github.com/ajhax/client
